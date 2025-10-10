@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace FileBridge\Ftp;
 
-use ResourceApi\Api\IFileStorage;
+use ResourceFoundation\Api\IFileStorage;
 use Base3\Configuration\Api\IConfiguration;
 
 /**

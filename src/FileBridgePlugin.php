@@ -5,7 +5,7 @@ namespace FileBridge;
 use Base3\Api\ICheck;
 use Base3\Api\IContainer;
 use Base3\Api\IPlugin;
-use ResourceApi\Api\IFileStorage;
+use ResourceFoundation\Api\IFileStorage;
 use FileBridgePlugin\No\NoFileStorage;
 
 class FileBridgePlugin implements IPlugin, ICheck {
@@ -30,7 +30,7 @@ class FileBridgePlugin implements IPlugin, ICheck {
 
 	public function checkDependencies() {
 		return [
-			'resourceapiplugin_installed' => $this->container->get('resourceapiplugin') ? 'Ok' : 'resourceapiplugin not installed'
+			'resourcefoundationplugin_installed' => $this->container->get('resourcefoundationplugin') ? 'Ok' : 'resourcefoundationplugin not installed'
 		];
 	}
 }

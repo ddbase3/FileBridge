@@ -27,11 +27,11 @@ FileBridge standardizes file and directory operations via a single interface, so
 
 ### Core Interface
 
-FileBridge implementations conform to `ResourceApi\Api\IFileStorage`:
+FileBridge implementations conform to `ResourceFoundation\Api\IFileStorage`:
 
 ```php
 <?php
-namespace ResourceApi\Api;
+namespace ResourceFoundation\Api;
 
 interface IFileStorage {
 	public function list(string $path = ''): array;
@@ -126,7 +126,7 @@ return [
 ```php
 <?php
 use Base3\Api\IClassMap;
-use ResourceApi\Api\IFileStorage;
+use ResourceFoundation\Api\IFileStorage;
 
 /** @var IClassMap $classmap */
 $classmap = $container->get(IClassMap::class);

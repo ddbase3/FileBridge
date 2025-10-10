@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace FileBridge\No;
 
-use ResourceApi\Api\IFileStorage;
+use ResourceFoundation\Api\IFileStorage;
 
 /**
  * NoFileStorage
