@@ -18,7 +18,7 @@ class FtpFileStorage implements IFileStorage {
 	private string $root;
 
 	public function __construct(IConfiguration $config) {
-		$cnf = $config->get('ftpstorage');
+		$cnf = $config->get('ftpfilestorage');
 
 		$host = $cnf['host'] ?? null;
 		$port = (int)($cnf['port'] ?? 21);

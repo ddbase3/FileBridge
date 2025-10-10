@@ -11,13 +11,18 @@ use Base3\Configuration\Api\IConfiguration;
  *
  * Implements IFileStorage for accessing files and directories
  * on the local filesystem within a configured root directory.
+ *
+ * Example configuration:
+ *
+ * [localfilestorage]
+ * root = "userfiles/test"
  */
 class LocalFileStorage implements IFileStorage {
 
 	private string $root;
 
 	public function __construct(IConfiguration $config) {
-		$cnf = $config->get('localstorage');
+		$cnf = $config->get('localfilestorage');
 		$this->root = rtrim($cnf['root'] ?? '', DIRECTORY_SEPARATOR);
 
 		if ($this->root === '') {
@@ -25,21 +30,38 @@ class LocalFileStorage implements IFileStorage {
 		}
 	}
 
-	/** Resolve and sanitize the full local path. */
+	/** Resolve target path under configured root (secure, works with relative roots). */
 	private function resolvePath(string $path): string {
-		$full = realpath($this->root . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR));
+		$root = $this->absPath($this->root); // absolute, normalized
+		$rel  = $this->normalize(ltrim($path, "/\\"));
+		$target = rtrim($root, DIRECTORY_SEPARATOR) . ($rel !== '' ? DIRECTORY_SEPARATOR . $rel : '');
 
-		// If the path does not exist yet, join manually
-		if ($full === false) {
-			$full = $this->root . DIRECTORY_SEPARATOR . ltrim($path, DIRECTORY_SEPARATOR);
-		}
-
-		// Security: prevent traversal outside root
-		if (strpos(realpath(dirname($full)) ?: dirname($full), $this->root) !== 0) {
+		// Security: allow exactly root or any child with proper boundary
+		$prefix = rtrim($root, DIRECTORY_SEPARATOR);
+		if ($target !== $prefix && strpos($target, $prefix . DIRECTORY_SEPARATOR) !== 0) {
 			throw new \RuntimeException('Access outside of LocalFileStorage root is not allowed: ' . $path);
 		}
+		return $target;
+	}
 
-		return $full;
+	/** Make an absolute, normalized path from possibly relative root. */
+	private function absPath(string $p): string {
+		if ($p === '') throw new \RuntimeException('LocalFileStorage root path not configured.');
+		if ($p[0] === DIRECTORY_SEPARATOR) return $this->normalize($p);
+		return $this->normalize(getcwd() . DIRECTORY_SEPARATOR . $p);
+	}
+
+	/** Normalize path segments, resolving '.' and '..' without touching FS. */
+	private function normalize(string $p): string {
+		$parts = [];
+		$seg = preg_split('#[\\\\/]#', $p, -1, PREG_SPLIT_NO_EMPTY);
+		foreach ($seg as $s) {
+			if ($s === '.' ) continue;
+			if ($s === '..') { array_pop($parts); continue; }
+			$parts[] = $s;
+		}
+		$leading = (isset($p[0]) && ($p[0] === '/' || $p[0] === '\\')) ? DIRECTORY_SEPARATOR : '';
+		return $leading . implode(DIRECTORY_SEPARATOR, $parts);
 	}
 
 	/** @inheritDoc */
