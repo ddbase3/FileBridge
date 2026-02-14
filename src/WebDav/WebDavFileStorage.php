@@ -9,16 +9,7 @@ use Base3\Configuration\Api\IConfiguration;
 /**
  * WebDavFileStorage
  *
- * Implements IFileStorage using plain PHP cURL for WebDAV-compatible servers.
- * Tested with Nextcloud and OwnCloud. Supports binary-safe file transfers.
- *
- * Example configuration:
- *
- * [webdavfilestorage]
- * baseUrl = "https://domain.com/remote.php/dav/files/Admin/"
- * root = "AnyDir"
- * username = "Admin"
- * password = "mypass"
+ * Binary-safe WebDAV storage for Nextcloud/OwnCloud using cURL.
  */
 class WebDavFileStorage implements IFileStorage {
 
@@ -27,29 +18,78 @@ class WebDavFileStorage implements IFileStorage {
 	private string $username;
 	private string $password;
 
-	public function __construct(IConfiguration $config) {
-		$cnf = $config->get('webdavfilestorage');
-		$this->baseUrl = rtrim($cnf['baseUrl'] ?? '', '/');
-		$this->root = trim($cnf['root'] ?? '', '/');
-		$this->username = $cnf['username'] ?? '';
-		$this->password = $cnf['password'] ?? '';
+	public function __construct(IConfiguration $config, string $section = 'webdavfilestorage') {
+		$cnf = $config->get($section);
+
+		$this->baseUrl = rtrim((string)($cnf['baseUrl'] ?? ''), '/');
+		$this->root = trim((string)($cnf['root'] ?? ''), '/');
+		$this->username = (string)($cnf['username'] ?? '');
+		$this->password = (string)($cnf['password'] ?? '');
 
 		if ($this->baseUrl === '' || $this->username === '' || $this->password === '') {
-			throw new \RuntimeException('WebDavFileStorage: missing configuration (baseUrl, username, password).');
+			throw new \RuntimeException("WebDavFileStorage: missing configuration in section '{$section}' (baseUrl, username, password).");
 		}
 	}
 
-	/** Build full URL for a given relative path, honoring configured root. */
 	private function buildUrl(string $path): string {
 		$segments = [];
 		if ($this->root !== '') $segments[] = $this->root;
 		if ($path !== '') $segments[] = ltrim($path, '/');
-		return $this->baseUrl . '/' . implode('/', $segments);
+
+		$rel = implode('/', $segments);
+		$rel = $this->encodePath($rel);
+
+		return $rel === '' ? ($this->baseUrl . '/') : ($this->baseUrl . '/' . $rel);
 	}
 
-	/** Execute a generic WebDAV request with robust error handling. */
+	/**
+	 * Encode path segment-wise.
+	 * WebDAV servers expect proper URL encoding of each segment.
+	 */
+	private function encodePath(string $path): string {
+		$path = trim($path, '/');
+		if ($path === '') return '';
+
+		$parts = explode('/', $path);
+		$parts = array_map(static fn($p) => rawurlencode($p), $parts);
+
+		return implode('/', $parts);
+	}
+
+	private function defaultHeaders(string $method): array {
+		$method = strtoupper($method);
+
+		if ($method === 'PROPFIND') {
+			return [
+				'Depth: 1',
+				'Content-Type: text/xml; charset="utf-8"',
+			];
+		}
+
+		if ($method === 'GET' || $method === 'PUT') {
+			return [
+				'Depth: 0',
+				'Content-Type: application/octet-stream',
+			];
+		}
+
+		if ($method === 'MKCOL' || $method === 'DELETE') {
+			return ['Depth: 0'];
+		}
+
+		return [];
+	}
+
+	/**
+	 * Binary-safe request:
+	 * - never trim response bodies (breaks binary)
+	 * - method-appropriate headers
+	 */
 	private function request(string $method, string $path = '', ?string $body = null, array $headers = []): string {
-		$url = rtrim($this->buildUrl($path), '/');
+		$method = strtoupper($method);
+		$url = $this->buildUrl($path);
+
+		$allHeaders = array_merge($this->defaultHeaders($method), $headers);
 
 		$ch = curl_init();
 		curl_setopt_array($ch, [
@@ -68,14 +108,12 @@ class WebDavFileStorage implements IFileStorage {
 			curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 		}
 
-		$defaultHeaders = [
-			'Depth: 1',
-			'Content-Type: text/xml; charset="utf-8"',
-		];
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array_merge($defaultHeaders, $headers));
+		if (!empty($allHeaders)) {
+			curl_setopt($ch, CURLOPT_HTTPHEADER, $allHeaders);
+		}
 
 		$response = curl_exec($ch);
-		$err = curl_error($ch);
+		$err = (string)curl_error($ch);
 		$info = curl_getinfo($ch);
 		curl_close($ch);
 
@@ -84,27 +122,22 @@ class WebDavFileStorage implements IFileStorage {
 			throw new \RuntimeException("WebDAV connection error: {$err}");
 		}
 
-		// Handle common safe codes
+		$headerSize = (int)($info['header_size'] ?? 0);
+		$respBody = $headerSize > 0 ? substr((string)$response, $headerSize) : (string)$response;
+
 		if ($code >= 400) {
-			// tolerate some benign codes
 			if (in_array($code, [404, 409, 405], true)) {
 				return '';
 			}
 			throw new \RuntimeException("WebDAV request failed: {$method} {$url} ({$code}) {$err}");
 		}
 
-		$headerSize = $info['header_size'] ?? 0;
-		$body = $headerSize > 0 ? substr($response, $headerSize) : $response;
-
-		return trim($body);
+		return $respBody;
 	}
 
-	/** @inheritDoc */
 	public function list(string $path = ''): array {
 		$response = $this->request('PROPFIND', $path, null, ['Depth: 1']);
-		if ($response === '') {
-			return [];
-		}
+		if ($response === '') return [];
 
 		$body = trim($response);
 		$body = preg_replace('/^[\x00-\x1F\xEF\xBB\xBF]+/u', '', $body);
@@ -147,66 +180,52 @@ class WebDavFileStorage implements IFileStorage {
 		return $items;
 	}
 
-	/** @inheritDoc */
 	public function read(string $path): string {
-		$content = $this->request('GET', $path);
+		$content = $this->request('GET', $path, null, ['Depth: 0']);
 		if ($content === '') {
 			throw new \RuntimeException("File not found: {$path}");
 		}
 		return $content;
 	}
 
-	/** @inheritDoc */
 	public function write(string $path, string $content): bool {
-		$this->request('PUT', $path, $content);
+		$this->request('PUT', $path, $content, ['Depth: 0']);
 		return true;
 	}
 
-	/** @inheritDoc */
 	public function delete(string $path): bool {
 		try {
-			$this->request('DELETE', $path);
+			$this->request('DELETE', $path, null, ['Depth: 0']);
 			return true;
 		} catch (\RuntimeException $e) {
-			if (str_contains($e->getMessage(), '(404)')) {
-				return false;
-			}
+			if (str_contains($e->getMessage(), '(404)')) return false;
 			throw $e;
 		}
 	}
 
-	/** @inheritDoc */
 	public function mkdir(string $path): bool {
-		// tolerate existing dir (409 Conflict)
-		$this->request('MKCOL', $path);
+		$this->request('MKCOL', $path, null, ['Depth: 0']);
 		return true;
 	}
 
-	/** @inheritDoc */
 	public function rmdir(string $path): bool {
 		try {
-			$this->request('DELETE', $path);
+			$this->request('DELETE', $path, null, ['Depth: 0']);
 			return true;
 		} catch (\RuntimeException $e) {
-			if (str_contains($e->getMessage(), '(404)')) {
-				return false;
-			}
+			if (str_contains($e->getMessage(), '(404)')) return false;
 			throw $e;
 		}
 	}
 
-	/** @inheritDoc */
 	public function exists(string $path): bool {
 		$response = $this->request('PROPFIND', $path, null, ['Depth: 0']);
 		return $response !== '' && str_contains($response, '<d:response>');
 	}
 
-	/** @inheritDoc */
 	public function stat(string $path): ?array {
 		$response = $this->request('PROPFIND', $path, null, ['Depth: 0']);
-		if ($response === '') {
-			return null;
-		}
+		if ($response === '') return null;
 
 		$body = trim($response);
 		$body = preg_replace('/^[\x00-\x1F\xEF\xBB\xBF]+/u', '', $body);
@@ -216,9 +235,7 @@ class WebDavFileStorage implements IFileStorage {
 
 		libxml_use_internal_errors(true);
 		$xml = simplexml_load_string($body);
-		if ($xml === false) {
-			return null;
-		}
+		if ($xml === false) return null;
 
 		$xml->registerXPathNamespace('d', 'DAV:');
 		$size = (int)($xml->xpath('//d:getcontentlength')[0] ?? 0);
@@ -232,4 +249,3 @@ class WebDavFileStorage implements IFileStorage {
 		];
 	}
 }
-
