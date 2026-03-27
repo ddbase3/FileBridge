@@ -1,5 +1,19 @@
-<?php
-declare(strict_types=1);
+<?php declare(strict_types=1);
+
+/***********************************************************************
+ * This file is part of FileBridge for BASE3 Framework.
+ *
+ * FileBridge extends the BASE3 framework with a unified file access
+ * layer for local, WebDAV, and FTP-based storage backends.
+ * It provides protocol-agnostic file and directory operations.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/filebridge
+ * https://github.com/ddbase3/FileBridge
+ **********************************************************************/
 
 namespace FileBridge\WebDav;
 
