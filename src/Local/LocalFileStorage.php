@@ -131,6 +131,52 @@ class LocalFileStorage implements IFileStorage {
 	}
 
 	/** @inheritDoc */
+	public function copy(string $source, string $target): bool {
+		$sourceFile = $this->resolvePath($source);
+		$targetFile = $this->resolvePath($target);
+
+		if (!is_file($sourceFile)) {
+			return false;
+		}
+		if ($sourceFile === $targetFile) {
+			return true;
+		}
+		if (is_dir($targetFile)) {
+			return false;
+		}
+
+		$targetDir = dirname($targetFile);
+		if (!is_dir($targetDir) && !mkdir($targetDir, 0777, true) && !is_dir($targetDir)) {
+			return false;
+		}
+
+		return copy($sourceFile, $targetFile);
+	}
+
+	/** @inheritDoc */
+	public function move(string $source, string $target): bool {
+		$sourceFile = $this->resolvePath($source);
+		$targetFile = $this->resolvePath($target);
+
+		if (!is_file($sourceFile)) {
+			return false;
+		}
+		if ($sourceFile === $targetFile) {
+			return true;
+		}
+		if (is_dir($targetFile)) {
+			return false;
+		}
+
+		$targetDir = dirname($targetFile);
+		if (!is_dir($targetDir) && !mkdir($targetDir, 0777, true) && !is_dir($targetDir)) {
+			return false;
+		}
+
+		return rename($sourceFile, $targetFile);
+	}
+
+	/** @inheritDoc */
 	public function delete(string $path): bool {
 		$file = $this->resolvePath($path);
 		return is_file($file) ? unlink($file) : false;

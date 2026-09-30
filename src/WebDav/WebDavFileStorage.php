@@ -99,7 +99,13 @@ class WebDavFileStorage implements IFileStorage {
 	 * - never trim response bodies (breaks binary)
 	 * - method-appropriate headers
 	 */
-	private function request(string $method, string $path = '', ?string $body = null, array $headers = []): string {
+	private function request(
+		string $method,
+		string $path = '',
+		?string $body = null,
+		array $headers = [],
+		array $emptyResponseCodes = [404, 409, 405]
+	): string {
 		$method = strtoupper($method);
 		$url = $this->buildUrl($path);
 
@@ -140,7 +146,7 @@ class WebDavFileStorage implements IFileStorage {
 		$respBody = $headerSize > 0 ? substr((string)$response, $headerSize) : (string)$response;
 
 		if ($code >= 400) {
-			if (in_array($code, [404, 409, 405], true)) {
+			if (in_array($code, $emptyResponseCodes, true)) {
 				return '';
 			}
 			throw new \RuntimeException("WebDAV request failed: {$method} {$url} ({$code}) {$err}");
@@ -204,6 +210,61 @@ class WebDavFileStorage implements IFileStorage {
 
 	public function write(string $path, string $content): bool {
 		$this->request('PUT', $path, $content, ['Depth: 0']);
+		return true;
+	}
+
+	public function copy(string $source, string $target): bool {
+		$sourceStat = $this->stat($source);
+		if ($sourceStat === null || $sourceStat['type'] !== 'file') {
+			return false;
+		}
+		if ($this->buildUrl($source) === $this->buildUrl($target)) {
+			return true;
+		}
+
+		$targetStat = $this->stat($target);
+		if ($targetStat !== null && $targetStat['type'] === 'dir') {
+			return false;
+		}
+
+		$this->request(
+			'COPY',
+			$source,
+			null,
+			[
+				'Destination: ' . $this->buildUrl($target),
+				'Overwrite: T',
+				'Depth: 0',
+			],
+			[]
+		);
+		return true;
+	}
+
+	public function move(string $source, string $target): bool {
+		$sourceStat = $this->stat($source);
+		if ($sourceStat === null || $sourceStat['type'] !== 'file') {
+			return false;
+		}
+		if ($this->buildUrl($source) === $this->buildUrl($target)) {
+			return true;
+		}
+
+		$targetStat = $this->stat($target);
+		if ($targetStat !== null && $targetStat['type'] === 'dir') {
+			return false;
+		}
+
+		$this->request(
+			'MOVE',
+			$source,
+			null,
+			[
+				'Destination: ' . $this->buildUrl($target),
+				'Overwrite: T',
+			],
+			[]
+		);
 		return true;
 	}
 

@@ -37,6 +37,8 @@ interface IFileStorage {
 	public function list(string $path = ''): array;
 	public function read(string $path): string;
 	public function write(string $path, string $content): bool;
+	public function copy(string $source, string $target): bool;
+	public function move(string $source, string $target): bool;
 	public function delete(string $path): bool;
 	public function mkdir(string $path): bool;
 	public function rmdir(string $path): bool;
@@ -44,6 +46,8 @@ interface IFileStorage {
 	public function stat(string $path): ?array;
 }
 ```
+
+`copy()` and `move()` operate on file paths inside the same storage instance. FileBridge keeps these operations inside the backend so local filesystems and WebDAV can use native operations and FTP can use binary streaming without forcing callers to compose `read()`, `write()`, and `delete()`.
 
 ### Implementations
 
@@ -146,6 +150,8 @@ $storage = $container->get('webdavstorage');
 $items = $storage->list('/reports/');
 $content = $storage->read('/reports/weekly.txt');
 $ok = $storage->write('/reports/new.txt', "Hello World\n");
+$storage->copy('/reports/new.txt', '/reports/new-copy.txt');
+$storage->move('/reports/new-copy.txt', '/reports/new-moved.txt');
 
 if (!$storage->exists('/reports/2025/')) {
 	$storage->mkdir('/reports/2025/');
@@ -168,6 +174,7 @@ $meta = $storage->stat('/reports/new.txt');
 
 * Path normalization & root restriction to avoid directory traversal
 * Uses PHP native functions for performance
+* File copy uses native `copy()` and file move uses native `rename()`
 * Best for on-host processing, temp space, or staging
 
 **Config keys**
@@ -185,6 +192,7 @@ $meta = $storage->stat('/reports/new.txt');
 * Files: `PUT`, `GET`, `DELETE`
 * Directories: `MKCOL`, `DELETE`
 * Listing & metadata via `PROPFIND` (`Depth: 0|1`)
+* Native WebDAV `COPY` and `MOVE` for file transfers inside the same storage
 * Auth via Basic Auth (use **app tokens** for Nextcloud)
 
 **Config keys**
@@ -203,6 +211,8 @@ $meta = $storage->stat('/reports/new.txt');
 * Supports active/passive mode
 * Optional FTPS/SSL
 * Root restriction for safety
+* File copy streams through a temporary binary stream without materializing the whole file as a PHP string
+* File move uses `ftp_rename()` and falls back to copy followed by delete if the server refuses the rename
 
 **Config keys**
 
@@ -218,7 +228,7 @@ $meta = $storage->stat('/reports/new.txt');
 **Behavior:**
 
 * All operations are no-ops.
-* Returns empty lists, empty strings, and `false` for destructive operations.
+* Returns empty lists, empty strings, and `false` for write, copy, move, and destructive operations.
 * Useful when file operations are temporarily disabled or for test flows.
 
 ---

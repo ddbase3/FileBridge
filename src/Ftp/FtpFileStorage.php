@@ -120,6 +120,57 @@ class FtpFileStorage implements IFileStorage {
 	}
 
 	/** @inheritDoc */
+	public function copy(string $source, string $target): bool {
+		$sourceRemote = $this->resolvePath($source);
+		$targetRemote = $this->resolvePath($target);
+
+		if ($sourceRemote === $targetRemote) {
+			return ftp_size($this->conn, $sourceRemote) !== -1 && !$this->isDir($sourceRemote);
+		}
+		if (ftp_size($this->conn, $sourceRemote) === -1 || $this->isDir($sourceRemote) || $this->isDir($targetRemote)) {
+			return false;
+		}
+
+		$temp = tmpfile();
+		if ($temp === false) {
+			return false;
+		}
+
+		try {
+			if (!@ftp_fget($this->conn, $temp, $sourceRemote, FTP_BINARY)) {
+				return false;
+			}
+			rewind($temp);
+			return @ftp_fput($this->conn, $targetRemote, $temp, FTP_BINARY);
+		} finally {
+			fclose($temp);
+		}
+	}
+
+	/** @inheritDoc */
+	public function move(string $source, string $target): bool {
+		$sourceRemote = $this->resolvePath($source);
+		$targetRemote = $this->resolvePath($target);
+
+		if ($sourceRemote === $targetRemote) {
+			return ftp_size($this->conn, $sourceRemote) !== -1 && !$this->isDir($sourceRemote);
+		}
+		if (ftp_size($this->conn, $sourceRemote) === -1 || $this->isDir($sourceRemote) || $this->isDir($targetRemote)) {
+			return false;
+		}
+
+		if (@ftp_rename($this->conn, $sourceRemote, $targetRemote)) {
+			return true;
+		}
+
+		if (!$this->copy($source, $target)) {
+			return false;
+		}
+
+		return @ftp_delete($this->conn, $sourceRemote);
+	}
+
+	/** @inheritDoc */
 	public function delete(string $path): bool {
 		$remote = $this->resolvePath($path);
 		return @ftp_delete($this->conn, $remote);

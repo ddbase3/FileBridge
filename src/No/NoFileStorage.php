@@ -44,6 +44,16 @@ class NoFileStorage implements IFileStorage {
 	}
 
 	/** @inheritDoc */
+	public function copy(string $source, string $target): bool {
+		return false;
+	}
+
+	/** @inheritDoc */
+	public function move(string $source, string $target): bool {
+		return false;
+	}
+
+	/** @inheritDoc */
 	public function delete(string $path): bool {
 		return false;
 	}
