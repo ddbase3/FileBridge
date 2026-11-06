@@ -1,0 +1,10 @@
+{
+  "manifestVersion": 1,
+  "name": "FileBridge",
+  "namespace": "FileBridge",
+  "version": "1.0.0",
+  "dependencies": {
+    "Base3Framework": ">=4.10.0",
+    "ResourceFoundation": ">=1.0.0"
+  }
+}

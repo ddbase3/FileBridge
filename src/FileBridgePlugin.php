@@ -21,7 +21,7 @@ use Base3\Api\ICheck;
 use Base3\Api\IContainer;
 use Base3\Api\IPlugin;
 use ResourceFoundation\Api\IFileStorage;
-use FileBridgePlugin\No\NoFileStorage;
+use FileBridge\No\NoFileStorage;
 
 class FileBridgePlugin implements IPlugin, ICheck {
 

@@ -35,9 +35,14 @@ class LocalFileStorage implements IFileStorage {
 
 	private string $root;
 
-	public function __construct(IConfiguration $config) {
+	public function __construct(
+		IConfiguration $config,
+		?string $root = null,
+		private readonly int $directoryMode = 0777,
+		private readonly ?int $fileMode = null
+	) {
 		$cnf = $config->get('localfilestorage');
-		$this->root = rtrim($cnf['root'] ?? '', DIRECTORY_SEPARATOR);
+		$this->root = rtrim($root ?? ($cnf['root'] ?? ''), DIRECTORY_SEPARATOR);
 
 		if ($this->root === '') {
 			throw new \RuntimeException('LocalFileStorage root path not configured.');
@@ -46,14 +51,29 @@ class LocalFileStorage implements IFileStorage {
 
 	/** Resolve target path under configured root (secure, works with relative roots). */
 	private function resolvePath(string $path): string {
-		$root = $this->absPath($this->root); // absolute, normalized
-		$rel  = $this->normalize(ltrim($path, "/\\"));
+		if (str_contains($path, "\0") || in_array('..', explode('/', str_replace('\\', '/', $path)), true)) {
+			throw new \InvalidArgumentException('Invalid file storage path.');
+		}
+		$root = $this->absPath($this->root);
+		$rel = $this->normalize(ltrim($path, "/\\"));
 		$target = rtrim($root, DIRECTORY_SEPARATOR) . ($rel !== '' ? DIRECTORY_SEPARATOR . $rel : '');
 
 		// Security: allow exactly root or any child with proper boundary
 		$prefix = rtrim($root, DIRECTORY_SEPARATOR);
 		if ($target !== $prefix && strpos($target, $prefix . DIRECTORY_SEPARATOR) !== 0) {
 			throw new \RuntimeException('Access outside of LocalFileStorage root is not allowed: ' . $path);
+		}
+		// Following an existing symlink would escape the logical storage boundary.
+		$cursor = $root;
+		if (is_link($cursor)) {
+			throw new \RuntimeException('Symbolic links are not allowed in file storage.');
+		}
+		foreach (explode(DIRECTORY_SEPARATOR, $rel) as $segment) {
+			if ($segment === '') continue;
+			$cursor .= DIRECTORY_SEPARATOR . $segment;
+			if (is_link($cursor)) {
+				throw new \RuntimeException('Symbolic links are not allowed in file storage.');
+			}
 		}
 		return $target;
 	}
@@ -98,6 +118,7 @@ class LocalFileStorage implements IFileStorage {
 			}
 
 			$full = $dir . DIRECTORY_SEPARATOR . $entry;
+			if (is_link($full)) continue;
 			$items[] = [
 				'name' => $entry,
 				'type' => is_dir($full) ? 'dir' : 'file',
@@ -122,12 +143,13 @@ class LocalFileStorage implements IFileStorage {
 		$dir = dirname($file);
 
 		if (!is_dir($dir)) {
-			if (!mkdir($dir, 0777, true) && !is_dir($dir)) {
+			if (!mkdir($dir, $this->directoryMode, true) && !is_dir($dir)) {
 				return false;
 			}
 		}
 
-		return file_put_contents($file, $content) !== false;
+		if (file_put_contents($file, $content, LOCK_EX) === false) return false;
+		return $this->fileMode === null || chmod($file, $this->fileMode);
 	}
 
 	/** @inheritDoc */
@@ -146,11 +168,12 @@ class LocalFileStorage implements IFileStorage {
 		}
 
 		$targetDir = dirname($targetFile);
-		if (!is_dir($targetDir) && !mkdir($targetDir, 0777, true) && !is_dir($targetDir)) {
+		if (!is_dir($targetDir) && !mkdir($targetDir, $this->directoryMode, true) && !is_dir($targetDir)) {
 			return false;
 		}
 
-		return copy($sourceFile, $targetFile);
+		if (!copy($sourceFile, $targetFile)) return false;
+		return $this->fileMode === null || chmod($targetFile, $this->fileMode);
 	}
 
 	/** @inheritDoc */
@@ -169,7 +192,7 @@ class LocalFileStorage implements IFileStorage {
 		}
 
 		$targetDir = dirname($targetFile);
-		if (!is_dir($targetDir) && !mkdir($targetDir, 0777, true) && !is_dir($targetDir)) {
+		if (!is_dir($targetDir) && !mkdir($targetDir, $this->directoryMode, true) && !is_dir($targetDir)) {
 			return false;
 		}
 
@@ -185,7 +208,7 @@ class LocalFileStorage implements IFileStorage {
 	/** @inheritDoc */
 	public function mkdir(string $path): bool {
 		$dir = $this->resolvePath($path);
-		return !is_dir($dir) ? mkdir($dir, 0777, true) : true;
+		return !is_dir($dir) ? mkdir($dir, $this->directoryMode, true) : true;
 	}
 
 	/** @inheritDoc */
@@ -202,10 +225,10 @@ class LocalFileStorage implements IFileStorage {
 		);
 
 		foreach ($it as $file) {
-			if ($file->isDir()) {
-				rmdir($file->getRealPath());
+			if ($file->isDir() && !$file->isLink()) {
+				rmdir($file->getPathname());
 			} else {
-				unlink($file->getRealPath());
+				unlink($file->getPathname());
 			}
 		}
 

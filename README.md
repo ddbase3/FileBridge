@@ -276,3 +276,12 @@ FileBridge can ship optional MissionBay nodes that wrap the storage operations:
 
 GPL 3.0 License. See `LICENSE` for details.
 
+## BASE3 local managed storage for FileManager (2026-11-05)
+
+The implemented local backend class is `FileBridge\Local\LocalFileStorage`, not `FileBridge\Service\LocalStorage`. It now accepts an optional absolute root argument and optional directory/file permission modes in addition to the existing `IConfiguration` constructor argument. Its original directory/file permission defaults remain unchanged; managed owner storage explicitly uses private `0770` directories and `0660` files. Existing instances that use the `localfilestorage` configuration group remain supported.
+
+`FileBridge\Local\LocalManagedFileStorageService` implements `ResourceFoundation\Api\IManagedFileStorageService` using the same local backend. It keeps each `(ownerGroup, ownerName, mode)` in a hashed directory beneath `<configured-root>/owners`, isolating owners without adding a settings database, alternate file API or second filesystem implementation. It supports creating, finding, deleting and copying a logical owner's files. Deletion emits `ManagedFileStorageDeletingEvent`. It does not support following filesystem symlinks.
+
+Standalone configuration is supplied by the project composition. `Base3ChatWebsite` reads the configured `IConfiguration::getString('directories', 'data')`, then appends `filemanager/` for the FileBridge storage and `filemanager/uploads/` for ClientStack upload sessions. FileBridge writes `Require all denied` in that storage root's `.htaccess` if it does not exist, and refuses an existing non-denying policy. **Server configuration must independently deny direct HTTP access to the entire configured `[directories] data`/`filemanager/` subtree**, especially on Nginx or when Apache ignores `.htaccess`. Web server access rules and filesystem permissions must be verified before production deployment.
+
+FileManager uploads are stored in hashed owner folders; incomplete chunks are placed under `<configured-root>/uploads`. The configured `[directories] data` directory must not be publicly served by the host. FileBridge retains its existing storage-root `.htaccess` behavior. No compatibility lookup in the old project `userfiles` directory is performed. These directories need write access for the BASE3 PHP process, and read-only deployment users must not be able to modify the root access policy. Operators must configure backup exclusions/retention and cleanup for abandoned sessions.
