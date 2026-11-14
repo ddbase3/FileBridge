@@ -1,15 +1,29 @@
 <?php declare(strict_types=1);
 
-namespace FileBridge\Local;
+/***********************************************************************
+ * This file is part of FileBridge for BASE3 Framework.
+ *
+ * FileBridge extends the BASE3 framework with a unified file access
+ * layer for local, WebDAV, and FTP-based storage backends.
+ * It provides protocol-agnostic file and directory operations.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de/v/filebridge
+ **********************************************************************/
 
-use Base3\Configuration\Api\IConfiguration;
-use Base3\Event\Api\IEventManager;
+namespace Base3\FileBridge\Local;
+
+use Base3\CoreFoundation\Configuration\Api\IConfiguration;
+use Base3\CoreFoundation\Event\Api\IEventManager;
 use InvalidArgumentException;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use ResourceFoundation\Api\IFileStorage;
-use ResourceFoundation\Api\IManagedFileStorageService;
-use ResourceFoundation\Event\ManagedFileStorageDeletingEvent;
+use Base3\ResourceFoundation\Api\IFileStorage;
+use Base3\ResourceFoundation\Api\IManagedFileStorageService;
+use Base3\ResourceFoundation\Event\ManagedFileStorageDeletingEvent;
 use RuntimeException;
 use FilesystemIterator;
 

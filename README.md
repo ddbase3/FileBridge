@@ -27,11 +27,11 @@ FileBridge standardizes file and directory operations via a single interface, so
 
 ### Core Interface
 
-FileBridge implementations conform to `ResourceFoundation\Api\IFileStorage`:
+FileBridge implementations conform to `Base3\ResourceFoundation\Api\IFileStorage`:
 
 ```php
 <?php
-namespace ResourceFoundation\Api;
+namespace Base3\ResourceFoundation\Api;
 
 interface IFileStorage {
 	public function list(string $path = ''): array;
@@ -51,10 +51,10 @@ interface IFileStorage {
 
 ### Implementations
 
-* `FileBridge\Service\LocalStorage` – local filesystem
-* `FileBridge\Service\WebDavStorage` – WebDAV-compatible servers (e.g., Nextcloud)
-* `FileBridge\Service\FtpStorage` – FTP (optionally SFTP)
-* `FileBridge\Service\NoFileStorage` – dummy/no-op implementation
+* `Base3\FileBridge\Service\LocalStorage` – local filesystem
+* `Base3\FileBridge\Service\WebDavStorage` – WebDAV-compatible servers (e.g., Nextcloud)
+* `Base3\FileBridge\Service\FtpStorage` – FTP (optionally SFTP)
+* `Base3\FileBridge\Service\NoFileStorage` – dummy/no-op implementation
 
 ---
 
@@ -76,7 +76,7 @@ components/
 ```
 
 1. Place the `FileBridge` plugin under `components/`.
-2. Ensure your BASE3 autoloader/classmap includes the `FileBridge\\` namespace under `src/`.
+2. Ensure your BASE3 autoloader/classmap includes the `Base3\\FileBridge\\` namespace under `src/`.
 3. You can retrieve storage instances directly via the BASE3 **ClassMap** or DI container.
 
 ---
@@ -129,8 +129,8 @@ return [
 
 ```php
 <?php
-use Base3\Api\IClassMap;
-use ResourceFoundation\Api\IFileStorage;
+use Base3\CoreFoundation\Api\IClassMap;
+use Base3\ResourceFoundation\Api\IFileStorage;
 
 /** @var IClassMap $classmap */
 $classmap = $container->get(IClassMap::class);
@@ -237,11 +237,11 @@ $meta = $storage->stat('/reports/new.txt');
 
 FileBridge can ship optional MissionBay nodes that wrap the storage operations:
 
-* `FileBridge\Node\FileListNode`
-* `FileBridge\Node\FileReadNode`
-* `FileBridge\Node\FileWriteNode`
-* `FileBridge\Node\FileDeleteNode`
-* `FileBridge\Node\FileMkdirNode` / `FileRmdirNode`
+* `Base3\FileBridge\Node\FileListNode`
+* `Base3\FileBridge\Node\FileReadNode`
+* `Base3\FileBridge\Node\FileWriteNode`
+* `Base3\FileBridge\Node\FileDeleteNode`
+* `Base3\FileBridge\Node\FileMkdirNode` / `FileRmdirNode`
 
 ---
 
@@ -278,9 +278,9 @@ GPL 3.0 License. See `LICENSE` for details.
 
 ## BASE3 local managed storage for FileManager (2026-11-05)
 
-The implemented local backend class is `FileBridge\Local\LocalFileStorage`, not `FileBridge\Service\LocalStorage`. It now accepts an optional absolute root argument and optional directory/file permission modes in addition to the existing `IConfiguration` constructor argument. Its original directory/file permission defaults remain unchanged; managed owner storage explicitly uses private `0770` directories and `0660` files. Existing instances that use the `localfilestorage` configuration group remain supported.
+The implemented local backend class is `Base3\FileBridge\Local\LocalFileStorage`, not `Base3\FileBridge\Service\LocalStorage`. It now accepts an optional absolute root argument and optional directory/file permission modes in addition to the existing `IConfiguration` constructor argument. Its original directory/file permission defaults remain unchanged; managed owner storage explicitly uses private `0770` directories and `0660` files. Existing instances that use the `localfilestorage` configuration group remain supported.
 
-`FileBridge\Local\LocalManagedFileStorageService` implements `ResourceFoundation\Api\IManagedFileStorageService` using the same local backend. It keeps each `(ownerGroup, ownerName, mode)` in a hashed directory beneath `<configured-root>/owners`, isolating owners without adding a settings database, alternate file API or second filesystem implementation. It supports creating, finding, deleting and copying a logical owner's files. Deletion emits `ManagedFileStorageDeletingEvent`. It does not support following filesystem symlinks.
+`Base3\FileBridge\Local\LocalManagedFileStorageService` implements `Base3\ResourceFoundation\Api\IManagedFileStorageService` using the same local backend. It keeps each `(ownerGroup, ownerName, mode)` in a hashed directory beneath `<configured-root>/owners`, isolating owners without adding a settings database, alternate file API or second filesystem implementation. It supports creating, finding, deleting and copying a logical owner's files. Deletion emits `ManagedFileStorageDeletingEvent`. It does not support following filesystem symlinks.
 
 Standalone configuration is supplied by the project composition. `Base3ChatWebsite` reads the configured `IConfiguration::getString('directories', 'data')`, then appends `filemanager/` for the FileBridge storage and `filemanager/uploads/` for ClientStack upload sessions. FileBridge writes `Require all denied` in that storage root's `.htaccess` if it does not exist, and refuses an existing non-denying policy. **Server configuration must independently deny direct HTTP access to the entire configured `[directories] data`/`filemanager/` subtree**, especially on Nginx or when Apache ignores `.htaccess`. Web server access rules and filesystem permissions must be verified before production deployment.
 

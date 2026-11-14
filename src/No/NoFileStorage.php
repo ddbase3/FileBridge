@@ -15,9 +15,9 @@
  * https://github.com/ddbase3/FileBridge
  **********************************************************************/
 
-namespace FileBridge\No;
+namespace Base3\FileBridge\No;
 
-use ResourceFoundation\Api\IFileStorage;
+use Base3\ResourceFoundation\Api\IFileStorage;
 
 /**
  * NoFileStorage

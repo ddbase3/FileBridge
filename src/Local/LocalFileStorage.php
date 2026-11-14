@@ -15,10 +15,10 @@
  * https://github.com/ddbase3/FileBridge
  **********************************************************************/
 
-namespace FileBridge\Local;
+namespace Base3\FileBridge\Local;
 
-use ResourceFoundation\Api\IFileStorage;
-use Base3\Configuration\Api\IConfiguration;
+use Base3\ResourceFoundation\Api\IFileStorage;
+use Base3\CoreFoundation\Configuration\Api\IConfiguration;
 
 /**
  * LocalFileStorage

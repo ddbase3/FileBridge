@@ -15,13 +15,13 @@
  * https://github.com/ddbase3/FileBridge
  **********************************************************************/
 
-namespace FileBridge;
+namespace Base3\FileBridge;
 
-use Base3\Api\ICheck;
-use Base3\Api\IContainer;
-use Base3\Api\IPlugin;
-use ResourceFoundation\Api\IFileStorage;
-use FileBridge\No\NoFileStorage;
+use Base3\CoreFoundation\Api\ICheck;
+use Base3\CoreFoundation\Api\IContainer;
+use Base3\CoreFoundation\Api\IPlugin;
+use Base3\ResourceFoundation\Api\IFileStorage;
+use Base3\FileBridge\No\NoFileStorage;
 
 class FileBridgePlugin implements IPlugin, ICheck {
 

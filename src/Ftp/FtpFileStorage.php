@@ -15,10 +15,10 @@
  * https://github.com/ddbase3/FileBridge
  **********************************************************************/
 
-namespace FileBridge\Ftp;
+namespace Base3\FileBridge\Ftp;
 
-use ResourceFoundation\Api\IFileStorage;
-use Base3\Configuration\Api\IConfiguration;
+use Base3\ResourceFoundation\Api\IFileStorage;
+use Base3\CoreFoundation\Configuration\Api\IConfiguration;
 
 /**
  * FtpFileStorage
