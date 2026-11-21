@@ -2,9 +2,19 @@
 	"manifestVersion": 1,
 	"name": "FileBridge",
 	"namespace": "Base3\\FileBridge",
-	"version": "1.0.0",
+	"version": "5.0.0",
+	"description": "Unified file-access layer across multiple backends: Local filesystem, WebDAV (e.g., Nextcloud), and FTP",
+	"license": "GPL-3.0-or-later",
+	"maintainers": [
+		{
+			"name": "Daniel Dahme",
+			"url": "https://www.base3.de",
+			"email": "info@base3.de"
+		}
+	],
+	"repository": "https://github.com/ddbase3/FileBrisge",
 	"dependencies": {
-		"CoreFoundation": ">=4.10.0",
-		"ResourceFoundation": ">=1.0.0"
+		"CoreFoundation": ">=5.0.0",
+		"ResourceFoundation": ">=5.0.0"
 	}
 }
